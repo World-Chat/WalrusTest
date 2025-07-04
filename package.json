@@ -1,0 +1,25 @@
+{
+  "name": "walrus-messaging-app",
+  "version": "1.0.0",
+  "description": "A messaging app example using Walrus decentralized storage with encrypted messages",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@mysten/seal": "^0.1.0",
+    "@mysten/sui": "^0.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "keywords": [
+    "walrus",
+    "decentralized-storage",
+    "encryption",
+    "messaging",
+    "sui"
+  ],
+  "author": "",
+  "license": "MIT"
+} 
