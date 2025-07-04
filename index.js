@@ -7,6 +7,7 @@
 
 import dotenv from 'dotenv';
 import { MessagingService } from './src/messaging-service.js';
+import readline from 'readline';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,12 @@ const config = {
   senderAddress: process.env.SENDER_WALLET_ADDRESS,
   receiverAddress: process.env.RECEIVER_WALLET_ADDRESS
 };
+
+// Create readline interface for user input
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
 // Validate configuration
 function validateConfig() {
@@ -41,14 +48,27 @@ function validateConfig() {
   console.log(`📥 Receiver: ${config.receiverAddress}`);
 }
 
-// Example usage functions
-async function sendExampleMessage() {
-  console.log('\n📤 Sending Example Message...');
+// Interactive message sending function
+async function sendInteractiveMessage() {
+  console.log('\n📤 Send a Message');
+  console.log('================');
   
   const messagingService = new MessagingService(config);
   
   try {
-    const message = "Hello! This is a secret message stored on Walrus with @mysten/seal encryption! 🔐";
+    // Get message from user
+    const message = await new Promise((resolve) => {
+      rl.question('💬 Enter your message: ', (input) => {
+        resolve(input.trim());
+      });
+    });
+    
+    if (!message) {
+      console.log('❌ Message cannot be empty');
+      return null;
+    }
+    
+    console.log('⏳ Sending message...');
     
     const result = await messagingService.sendMessage(message, config.receiverAddress);
     
@@ -60,16 +80,32 @@ async function sendExampleMessage() {
     return result.blobId;
   } catch (error) {
     console.error('❌ Failed to send message:', error.message);
-    throw error;
+    return null;
   }
 }
 
-async function retrieveExampleMessage(blobId) {
-  console.log('\n📥 Retrieving Example Message...');
+// Interactive message retrieval function
+async function retrieveInteractiveMessage() {
+  console.log('\n📥 Retrieve a Message');
+  console.log('===================');
   
   const messagingService = new MessagingService(config);
   
   try {
+    // Get blob ID from user
+    const blobId = await new Promise((resolve) => {
+      rl.question('📋 Enter the Blob ID to retrieve: ', (input) => {
+        resolve(input.trim());
+      });
+    });
+    
+    if (!blobId) {
+      console.log('❌ Blob ID cannot be empty');
+      return null;
+    }
+    
+    console.log('⏳ Retrieving message...');
+    
     const result = await messagingService.retrieveMessage(
       blobId,
       config.receiverAddress,
@@ -85,59 +121,85 @@ async function retrieveExampleMessage(blobId) {
     return result;
   } catch (error) {
     console.error('❌ Failed to retrieve message:', error.message);
-    throw error;
+    return null;
   }
 }
 
-async function getMessageMetadata(blobId) {
-  console.log('\n📊 Getting Message Metadata...');
+// Interactive menu function
+async function showMenu() {
+  console.log('\n🔐 Walrus Encrypted Messaging App');
+  console.log('================================');
+  console.log('1. 📤 Send a message');
+  console.log('2. 📥 Retrieve a message');
+  console.log('3. 🔄 Send and retrieve (demo)');
+  console.log('4. ❌ Exit');
+  
+  const choice = await new Promise((resolve) => {
+    rl.question('\nSelect an option (1-4): ', (input) => {
+      resolve(input.trim());
+    });
+  });
+  
+  return choice;
+}
+
+// Demo function that sends and immediately retrieves
+async function sendAndRetrieveDemo() {
+  console.log('\n🔄 Send and Retrieve Demo');
+  console.log('========================');
   
   const messagingService = new MessagingService(config);
   
   try {
-    const metadata = await messagingService.getMessageMetadata(blobId);
+    // Get message from user
+    const message = await new Promise((resolve) => {
+      rl.question('💬 Enter your message: ', (input) => {
+        resolve(input.trim());
+      });
+    });
     
-    console.log('✅ Message metadata retrieved!');
-    console.log('📋 Metadata:', JSON.stringify(metadata, null, 2));
-    
-    return metadata;
-  } catch (error) {
-    console.error('❌ Failed to get message metadata:', error.message);
-    throw error;
-  }
-}
-
-async function verifyMessage(blobId) {
-  console.log('\n🔍 Verifying Message...');
-  
-  const messagingService = new MessagingService(config);
-  
-  try {
-    const isValid = await messagingService.verifyMessage(blobId, config.senderAddress);
-    
-    if (isValid) {
-      console.log('✅ Message verification passed!');
-    } else {
-      console.log('❌ Message verification failed!');
+    if (!message) {
+      console.log('❌ Message cannot be empty');
+      return;
     }
     
-    return isValid;
+    console.log('⏳ Sending message...');
+    
+    const result = await messagingService.sendMessage(message, config.receiverAddress);
+    
+    console.log('✅ Message sent successfully!');
+    console.log(`📋 Blob ID: ${result.blobId}`);
+    console.log(`📅 Timestamp: ${result.timestamp}`);
+    console.log(`📏 Size: ${result.size} bytes`);
+    
+    // Wait for blob to be processed
+    console.log('\n⏳ Waiting for blob to be processed and certified on Walrus network...');
+    console.log('   This may take a few seconds as the blob needs to be distributed and certified.');
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    
+    // Retrieve the message
+    console.log('\n⏳ Retrieving message...');
+    
+    const retrievedResult = await messagingService.retrieveMessage(
+      result.blobId,
+      config.receiverAddress,
+      config.senderAddress
+    );
+    
+    console.log('✅ Message retrieved and decrypted successfully!');
+    console.log(`💬 Message: "${retrievedResult.message}"`);
+    console.log(`📤 From: ${retrievedResult.sender}`);
+    console.log(`📥 To: ${retrievedResult.recipient}`);
+    console.log(`📅 Timestamp: ${retrievedResult.timestamp}`);
+    
+    console.log('\n🎉 Demo completed successfully!');
+    
   } catch (error) {
-    console.error('❌ Failed to verify message:', error.message);
-    throw error;
+    console.error('❌ Demo failed:', error.message);
   }
 }
 
-async function waitForBlob(blobId, aggregatorUrl, maxTries = 10, delayMs = 3000) {
-  for (let i = 0; i < maxTries; i++) {
-    const res = await fetch(`${aggregatorUrl}/v1/blobs/${blobId}`);
-    if (res.ok) return await res.arrayBuffer();
-    await new Promise(r => setTimeout(r, delayMs));
-  }
-  throw new Error('Blob not available after waiting');
-}
-
-// Main application flow
+// Main interactive application flow
 async function main() {
   console.log('🚀 Walrus Encrypted Messaging App Example');
   console.log('==========================================');
@@ -146,35 +208,51 @@ async function main() {
   validateConfig();
   
   try {
-    // Step 1: Send a message
-    const blobId = await sendExampleMessage();
-    
-    // Step 2: Wait for blob to be processed and certified on Walrus network
-    console.log('\n⏳ Waiting for blob to be processed and certified on Walrus network...');
-    console.log('   This may take a few seconds as the blob needs to be distributed and certified.');
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-    
-    // Step 3: Skip metadata (endpoint not available) and go straight to retrieval
-    console.log('\n📊 Skipping metadata retrieval (endpoint not available on this aggregator)');
-    
-    // Step 4: Retrieve and decrypt the message
-    await retrieveExampleMessage(blobId);
-    
-    console.log('\n🎉 Example completed successfully!');
-    console.log('\n📚 What happened:');
-    console.log('1. Message was encrypted using @mysten/seal');
-    console.log('2. Encrypted data was stored on Walrus decentralized storage');
-    console.log('3. Message was retrieved and decrypted successfully');
-    console.log('4. Message integrity was verified');
+    while (true) {
+      const choice = await showMenu();
+      
+      switch (choice) {
+        case '1':
+          await sendInteractiveMessage();
+          break;
+        case '2':
+          await retrieveInteractiveMessage();
+          break;
+        case '3':
+          await sendAndRetrieveDemo();
+          break;
+        case '4':
+          console.log('\n👋 Goodbye!');
+          rl.close();
+          process.exit(0);
+          break;
+        default:
+          console.log('❌ Invalid option. Please select 1-4.');
+      }
+      
+      // Ask if user wants to continue
+      const continueChoice = await new Promise((resolve) => {
+        rl.question('\nPress Enter to continue or type "exit" to quit: ', (input) => {
+          resolve(input.trim().toLowerCase());
+        });
+      });
+      
+      if (continueChoice === 'exit') {
+        console.log('\n👋 Goodbye!');
+        rl.close();
+        process.exit(0);
+      }
+    }
     
   } catch (error) {
-    console.error('\n💥 Example failed:', error.message);
+    console.error('\n💥 Application failed:', error.message);
     console.log('\n🔧 Troubleshooting:');
     console.log('- Make sure you have SUI and WAL tokens in your wallet');
     console.log('- Verify your wallet addresses are correct');
     console.log('- Check your internet connection');
     console.log('- Ensure Walrus network is accessible');
     
+    rl.close();
     process.exit(1);
   }
 }
@@ -183,7 +261,7 @@ async function main() {
 const args = process.argv.slice(2);
 
 if (args.includes('--help') || args.includes('-h')) {
-  console.log(`\nWalrus Encrypted Messaging App Example\n\nUsage:\n  node index.js                    # Run the complete example\n  node index.js --help            # Show this help message\n\nEnvironment Variables:\n  SENDER_WALLET_ADDRESS          # Your Sui wallet address (required)\n  RECEIVER_WALLET_ADDRESS        # Recipient's wallet address (required)\n  WALRUS_AGGREGATOR_URL          # Walrus aggregator URL (optional, default: https://agg.test.walrus.eosusa.io)\n  WALRUS_PUBLISHER_URL           # Walrus publisher URL (optional, default: https://pub.test.walrus.eosusa.io)\n  SUI_NETWORK                    # Sui network (optional, default: testnet)\n\nExample:\n  SENDER_WALLET_ADDRESS=0x123... RECEIVER_WALLET_ADDRESS=0x456... node index.js\n`);
+  console.log(`\nWalrus Encrypted Messaging App Example\n\nUsage:\n  node index.js                    # Run the interactive app\n  node index.js --help            # Show this help message\n\nEnvironment Variables:\n  SENDER_WALLET_ADDRESS          # Your Sui wallet address (required)\n  RECEIVER_WALLET_ADDRESS        # Recipient's wallet address (required)\n  WALRUS_AGGREGATOR_URL          # Walrus aggregator URL (optional, default: https://aggregator.walrus-testnet.walrus.space)\n  WALRUS_PUBLISHER_URL           # Walrus publisher URL (optional, default: https://publisher.walrus-testnet.walrus.space)\n  SUI_NETWORK                    # Sui network (optional, default: testnet)\n\nExample:\n  SENDER_WALLET_ADDRESS=0x123... RECEIVER_WALLET_ADDRESS=0x456... node index.js\n`);
   process.exit(0);
 }
 
